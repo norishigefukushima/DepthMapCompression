@@ -13,31 +13,49 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="ヘッダー ファイル\libjpeg">
+      <UniqueIdentifier>{b2a209d0-b4e2-4182-8bee-d9484c400c22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\coding">
+      <UniqueIdentifier>{37cc5779-b79e-4175-b1a4-cfab1632d89b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\filter">
+      <UniqueIdentifier>{d4f44a89-0512-4cd5-911a-3674ca748c95}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\util">
+      <UniqueIdentifier>{7dcd94d8-3e49-4693-b5ad-470f7b947f99}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="util.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="bilateralFilter.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="minmaxFilter.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="split.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="boundaryReconstructionFilter.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="jpegTurboDemo.cpp">
+      <Filter>ソース ファイル\coding</Filter>
     </ClCompile>
     <ClCompile Include="x264FFMPEGDemo.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>ソース ファイル\coding</Filter>
     </ClCompile>
-    <ClCompile Include="jpegTurboDemo.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="bilateralFilter.cpp">
+      <Filter>ソース ファイル\filter</Filter>
+    </ClCompile>
+    <ClCompile Include="boundaryReconstructionFilter.cpp">
+      <Filter>ソース ファイル\filter</Filter>
+    </ClCompile>
+    <ClCompile Include="minmaxFilter.cpp">
+      <Filter>ソース ファイル\filter</Filter>
+    </ClCompile>
+    <ClCompile Include="split.cpp">
+      <Filter>ソース ファイル\filter</Filter>
+    </ClCompile>
+    <ClCompile Include="postFilterSet.cpp">
+      <Filter>ソース ファイル\filter</Filter>
+    </ClCompile>
+    <ClCompile Include="depthmapUtil.cpp">
+      <Filter>ソース ファイル\util</Filter>
+    </ClCompile>
+    <ClCompile Include="util.cpp">
+      <Filter>ソース ファイル\util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -45,6 +63,21 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="filter.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="jpeglib.h">
+      <Filter>ヘッダー ファイル\libjpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="jmorecfg.h">
+      <Filter>ヘッダー ファイル\libjpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="jerror.h">
+      <Filter>ヘッダー ファイル\libjpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="jconfig.h">
+      <Filter>ヘッダー ファイル\libjpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

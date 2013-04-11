@@ -82,15 +82,22 @@
   <ItemGroup>
     <ClCompile Include="bilateralFilter.cpp" />
     <ClCompile Include="boundaryReconstructionFilter.cpp" />
+    <ClCompile Include="depthmapUtil.cpp" />
     <ClCompile Include="jpegTurboDemo.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="minmaxFilter.cpp" />
+    <ClCompile Include="postFilterSet.cpp" />
     <ClCompile Include="split.cpp" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="x264FFMPEGDemo.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="config.h" />
     <ClInclude Include="filter.h" />
+    <ClInclude Include="jconfig.h" />
+    <ClInclude Include="jerror.h" />
+    <ClInclude Include="jmorecfg.h" />
+    <ClInclude Include="jpeglib.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
