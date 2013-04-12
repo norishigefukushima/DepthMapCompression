@@ -80,7 +80,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bilateralFilter.cpp" />
+    <ClCompile Include="binalyWeightedRangeFilter.cpp" />
     <ClCompile Include="boundaryReconstructionFilter.cpp" />
     <ClCompile Include="depthmapUtil.cpp" />
     <ClCompile Include="jpegTurboDemo.cpp" />

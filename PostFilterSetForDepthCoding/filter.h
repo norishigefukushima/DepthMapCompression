@@ -26,8 +26,6 @@ enum
 	FULL_KERNEL = 0,
 	SEPARABLE_KERNEL
 };
-
-void binalyWeightedRangeFilterSingle_32f( const Mat& src, Mat& dst, Size kernelSize, float threshold, int borderType=cv::BORDER_REPLICATE);
 void binalyWeightedRangeFilter(const Mat& src, Mat& dst, Size kernelSize, float threshold, int method, int borderType=cv::BORDER_REPLICATE);
 
 //post filter set class
@@ -37,7 +35,9 @@ class PostFilterSet
 public:
 	PostFilterSet();
 	~PostFilterSet();
+	void filterDisp8U2Depth32F(Mat& src, Mat& dest, double focus, double baseline, double amp, int median_r, int gaussian_r, int minmax_r, int brange_r, float brange_th, int brange_method=FULL_KERNEL);
 	void filterDisp8U2Depth16U(Mat& src, Mat& dest, double focus, double baseline, double amp, int median_r, int gaussian_r, int minmax_r, int brange_r, float brange_th, int brange_method=FULL_KERNEL);
+	void filterDisp8U2Disp32F(Mat& src, Mat& dest, int median_r, int gaussian_r, int minmax_r, int brange_r, float brange_th, int brange_method=FULL_KERNEL);
 	void operator()(Mat& src, Mat& dest, int median_r, int gaussian_r, int minmax_r, int brange_r, int brange_th, int brange_method=FULL_KERNEL);
 };
 

@@ -36,9 +36,6 @@
     <ClCompile Include="x264FFMPEGDemo.cpp">
       <Filter>ソース ファイル\coding</Filter>
     </ClCompile>
-    <ClCompile Include="bilateralFilter.cpp">
-      <Filter>ソース ファイル\filter</Filter>
-    </ClCompile>
     <ClCompile Include="boundaryReconstructionFilter.cpp">
       <Filter>ソース ファイル\filter</Filter>
     </ClCompile>
@@ -56,6 +53,9 @@
     </ClCompile>
     <ClCompile Include="util.cpp">
       <Filter>ソース ファイル\util</Filter>
+    </ClCompile>
+    <ClCompile Include="binalyWeightedRangeFilter.cpp">
+      <Filter>ソース ファイル\filter</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

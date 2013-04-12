@@ -5,143 +5,7 @@
 #include <smmintrin.h>
 #endif
 
-template <class T>
-static void fillOcclusion_(Mat& src, const T invalidvalue, const T maxval)
-{
-	const int MAX_LENGTH=(int)(src.cols*0.5);
-	//#pragma omp parallel for
-	for(int j=0;j<src.rows;j++)
-	{
-		T* s = src.ptr<T>(j);
-
-		s[0]=maxval;
-		s[src.cols-1]=maxval;
-
-		for(int i=1;i<src.cols-1;i++)
-		{
-			if(s[i]==invalidvalue)
-			{
-				int t=i;
-				do
-				{
-					t++;
-					if(t>src.cols-1)break;
-				}while(s[t]==invalidvalue);
-
-				const T dd = min(s[i-1],s[t]);
-				if(t-i>MAX_LENGTH)
-				{
-					for(int n=0;n<src.cols;n++)
-					{
-						s[n]=invalidvalue;
-					}
-				}
-				else
-				{
-					for(;i<t;i++)
-					{
-						s[i]=dd;
-					}
-				}
-			}
-		}
-		s[0]=s[1];
-		s[src.cols-1]=s[src.cols-2];
-	}
-}
-
-template <class T>
-static void fillOcclusionInv_(Mat& src, const T invalidvalue, const T minval)
-{
-	const int MAX_LENGTH=(int)(src.cols);
-	//#pragma omp parallel for
-	for(int j=0;j<src.rows;j++)
-	{
-		T* s = src.ptr<T>(j);
-
-		s[0]=minval;
-		s[src.cols-1]=minval;
-
-		for(int i=1;i<src.cols-1;i++)
-		{
-			if(s[i]==invalidvalue)
-			{
-				int t=i;
-				do
-				{
-					t++;
-					if(t>src.cols-1)break;
-				}while(s[t]==invalidvalue);
-
-				const T dd = max(s[i-1],s[t]);
-				if(t-i>MAX_LENGTH)
-				{
-					for(int n=0;n<src.cols;n++)
-					{
-						s[n]=invalidvalue;
-					}
-				}
-				else
-				{
-					for(;i<t;i++)
-					{
-						s[i]=dd;
-					}
-				}
-			}
-		}
-		s[0]=s[1];
-		s[src.cols-1]=s[src.cols-2];
-	}
-}
-
-enum
-{
-	FILL_DISPARITY =0,
-	FILL_DEPTH =1
-};
-void fillOcclusion(Mat& src, int invalidvalue, int disp_or_depth)
-{
-    if(disp_or_depth==FILL_DEPTH)
-    {
-        if(src.type()==CV_8U)
-        {
-            fillOcclusionInv_<uchar>(src, (uchar)invalidvalue,0);
-        }
-        else if(src.type()==CV_16S)
-        {
-            fillOcclusionInv_<short>(src, (short)invalidvalue,0);
-        }
-        else if(src.type()==CV_16U)
-        {
-            fillOcclusionInv_<unsigned short>(src, (unsigned short)invalidvalue,0);
-        }
-        else if(src.type()==CV_32F)
-        {
-            fillOcclusionInv_<float>(src, (float)invalidvalue,0.f);
-        }
-    }
-    else
-    {
-        if(src.type()==CV_8U)
-        {
-            fillOcclusion_<uchar>(src, (uchar)invalidvalue,255);
-        }
-        else if(src.type()==CV_16S)
-        {
-			fillOcclusion_<short>(src, (short)invalidvalue,SHRT_MAX);
-        }
-        else if(src.type()==CV_16U)
-        {
-			fillOcclusion_<unsigned short>(src, (unsigned short)invalidvalue,USHRT_MAX);
-        }
-        else if(src.type()==CV_32F)
-        {
-			fillOcclusion_<float>(src, (float)invalidvalue,FLT_MAX);
-        }
-    }
-}
-
+//point cloud rendering
 #if CV_SSE4_1
 static void myProjectPoint_SSE(const Mat& xyz, const Mat& R, const Mat& t, const Mat& K, vector<Point2f>& dest)
 {
@@ -416,6 +280,561 @@ void fillSmallHole(const Mat& src, Mat& dest)
 		}
 		s+=3,d+=3;
 	}
+}
+
+void projectImagefromXYZ(const Mat& image, Mat& destimage, const Mat& xyz, const Mat& R, const Mat& t, const Mat& K, const Mat& dist, Mat& mask, const bool isSub, vector<Point2f>& pt, Mat& depth)
+{
+	if(destimage.empty())destimage=Mat::zeros(Size(image.size()),image.type());
+	else destimage.setTo(0);
+	CV_Assert(
+		K.type()==CV_64F &&
+		R.type()==CV_64F && 
+		t.type()==CV_64F &&
+		" only support 64F matrix type");
+	{
+#ifdef _CALC_TIME_
+		CalcTime t1("depth projection to other viewpoint");
+#endif
+		//like cv::projectPoints
+		projectPointsSimple(xyz,R,t,K,pt);
+	}
+#ifdef _CALC_TIME_
+	CalcTime tm("rendering");
+#endif
+	depth.setTo(10000.f);
+	//#pragma omp parallel for
+	Point2f* ptxy = &pt[0];
+	float* xyzdata  = (float*)xyz.ptr<float>(0);
+	uchar* img=(uchar*)image.ptr<uchar>(0);
+
+	float* zbuff;
+	const int step1 = image.cols;
+	const int step3 = image.cols*3;
+	const int wstep = destimage.cols*3;
+
+	ptxy+=step1;
+	xyzdata+=step3;
+	img+=step3;
+	for(int j=1;j<image.rows-1;j++)
+	{
+		ptxy++,xyzdata+=3,img+=3;
+		for(int i=1;i<image.cols-1;i++)
+		{
+			int x=(int)(ptxy->x);
+			int y=(int)(ptxy->y);
+
+			//if(m[i]==255)continue;
+			if(x>=1 && x<image.cols-1 && y>=1 && y<image.rows-1)
+			{
+				zbuff = depth.ptr<float>(y)+x;
+				const float z =xyzdata[2];
+
+				//cout<<format("%d %d %d %d %d %d \n",j,y, (int)ptxy[image.cols].y,i,x,(int)ptxy[1].x);
+				//	getchar();
+				if(*zbuff>z)
+				{
+					uchar* dst = destimage.data + wstep*y + 3*x;
+					dst[0]=img[0];
+					dst[1]=img[1];
+					dst[2]=img[2];
+					*zbuff=z;
+
+					if(isSub)
+					{
+						if((int)ptxy[image.cols].y-y>1 && (int)ptxy[1].x-x>1)
+						{
+							if(zbuff[1]>z)
+							{
+								dst[3]=img[0];
+								dst[4]=img[1];
+								dst[5]=img[2];
+								zbuff[1]=z;
+							}
+							if(zbuff[step1+1]>z)
+							{
+								dst[wstep+0]=img[0];
+								dst[wstep+1]=img[1];
+								dst[wstep+2]=img[2];
+								zbuff[step1+1]=z;
+							}
+							if(zbuff[step1]>z)
+							{
+								dst[wstep+3]=img[0];
+								dst[wstep+4]=img[1];
+								dst[wstep+5]=img[2];
+								zbuff[step1]=z;
+							}
+						}
+						else if((int)ptxy[1].x-x>1)
+						{
+							if(zbuff[1]>z)
+							{
+								dst[3]=img[0];
+								dst[4]=img[1];
+								dst[5]=img[2];
+								zbuff[1]=z;
+							}
+						}
+						else if((int)ptxy[image.cols].y-y>1)
+						{
+							if(zbuff[step1]>z)
+							{
+								dst[wstep+0]=img[0];
+								dst[wstep+1]=img[1];
+								dst[wstep+2]=img[2];
+								zbuff[step1]=z;
+							}
+						}
+
+						if((int)ptxy[-image.cols].y-y<-1 && (int)ptxy[-1].x-x<-1)
+						{
+							if(zbuff[-1]>z)
+							{
+								dst[-3]=img[0];
+								dst[-2]=img[1];
+								dst[-1]=img[2];
+								zbuff[-1]=z;
+							}
+							if(zbuff[-step1-1]>z)
+							{
+								dst[-wstep+0]=img[0];
+								dst[-wstep+1]=img[1];
+								dst[-wstep+2]=img[2];
+								zbuff[-step1-1]=z;
+							}
+							if(zbuff[-step1]>z)
+							{
+								dst[-wstep-3]=img[0];
+								dst[-wstep-2]=img[1];
+								dst[-wstep-1]=img[2];
+								zbuff[-step1]=z;
+							}
+						}
+						else if((int)ptxy[-1].x-x<-1)
+						{
+							if(zbuff[-1]>z)
+							{
+								dst[-3]=img[0];
+								dst[-2]=img[1];
+								dst[-1]=img[2];
+								zbuff[-1]=z;
+							}
+						}
+						else if((int)ptxy[-image.cols].y-y<-1)
+						{
+							if(zbuff[-step1]>z)
+							{
+								dst[-wstep+0]=img[0];
+								dst[-wstep+1]=img[1];
+								dst[-wstep+2]=img[2];
+								zbuff[-step1]=z;
+							}
+						}
+					}
+				}
+			}
+			ptxy++,xyzdata+=3,img+=3;
+		}
+		ptxy++,xyzdata+=3,img+=3;
+	}
+}
+
+void projectImagefromXYZ(const Mat& image, Mat& destimage, const Mat& xyz, const Mat& R, const Mat& t, const Mat& K, const Mat& dist, Mat& mask, const bool isSub)
+{
+	vector<Point2f> pt(image.size().area());
+	Mat depth = 10000.f*Mat::ones(image.size(),CV_32F);
+
+	projectImagefromXYZ(image, destimage, xyz, R, t, K, dist, mask, isSub,  pt, depth);
+}
+
+template <class T>
+static void reprojectXYZ_(const Mat& depth, Mat& xyz, double f)
+{
+	if(xyz.empty())xyz=Mat::zeros(depth.size().area(),1,CV_32FC3);
+
+	const float bigZ = 10000.f;
+	const float fxinv = (float)(1.0/f);
+	const float fyinv = (float)(1.0/f);
+	const float cw = (depth.size().width-1)*0.5f;
+	const float ch = (depth.size().height-1)*0.5f;
+
+	T* dep = (T*)depth.ptr<T>(0);
+	float* data=xyz.ptr<float>(0);
+	//#pragma omp parallel for
+	for(int j=0;j<depth.rows;j++)
+	{
+		float b = j-ch;
+		const float y = b*fyinv;
+
+		float x = (-cw)*fxinv;
+		for(int i=0;i<depth.cols;i++)
+		{
+			float z = (T)*dep;
+			data[0]=x*z;
+			data[1]=y*z;
+			data[2]= (z==0) ?bigZ:z;
+
+			data+=3,dep++;
+			x+=fxinv;
+		}
+	}
+}
+
+void reprojectXYZ(const Mat& depth, Mat& xyz, double f)
+{
+	if(depth.type()==CV_8U)
+	{
+		reprojectXYZ_<uchar>(depth, xyz, f);
+	}
+	else if(depth.type()==CV_16S)
+	{
+		reprojectXYZ_<short>(depth, xyz, f);
+	}
+	else if(depth.type()==CV_16U)
+	{
+		reprojectXYZ_<unsigned short>(depth, xyz, f);
+	}
+	else if(depth.type()==CV_32F)
+	{
+		reprojectXYZ_<float>(depth, xyz, f);
+	}
+}
+
+void reprojectXYZ(const Mat& depth, Mat& xyz, Mat& intrinsic, Mat& distortion, float a, float b)
+{
+	if(xyz.empty())xyz=Mat::zeros(depth.size().area(),1,CV_32FC3);
+
+	const float bigZ = 10000.f;
+	const float fxinv = (float)(1.0/intrinsic.at<double>(0,0));
+	const float fyinv = (float)(1.0/intrinsic.at<double>(1,1));
+	const float cw = (float)intrinsic.at<double>(0,2);
+	const float ch = (float)intrinsic.at<double>(1,2);
+	const float k0 = (float)distortion.at<double>(0,0);
+	const float k1 = (float)distortion.at<double>(1,0);
+	//#pragma omp parallel for
+	for(int j=0;j<depth.rows;j++)
+	{
+		const float y = (j-ch)*fyinv;
+		const float yy=y*y;
+		unsigned short* dep = (unsigned short*)depth.ptr<unsigned short>(j);
+		float* data=xyz.ptr<float>(j*depth.cols);
+		for(int i=0;i<depth.cols;i++,dep++,data+=3)
+		{
+			const float x = (i-cw)*fxinv;
+			const float rr = x*x+yy;
+
+			float i2= (k0*rr + k1*rr*rr+1)*i;
+			float j2= (k0*rr + k1*rr*rr+1)*j;
+
+			float z = a* *dep+b;
+			data[0]=(i2-cw)*fxinv*z;
+			data[1]=(j2-ch)*fyinv*z;
+			data[2]= (z==0) ?bigZ:z;
+		}
+	}
+}
+
+Point3d get3DPointfromXYZ(Mat& xyz, Size& imsize, Point& pt)
+{
+	Point3d ret;
+	ret.x = xyz.at<float>(imsize.width*3*pt.y + 3*pt.x + 0);
+	ret.y = xyz.at<float>(imsize.width*3*pt.y + 3*pt.x + 1);
+	ret.z = xyz.at<float>(imsize.width*3*pt.y + 3*pt.x + 2);
+
+	return ret;
+}
+
+
+template <class T>
+static void fillOcclusion_(Mat& src, const T invalidvalue, const T maxval)
+{
+	const int MAX_LENGTH=(int)(src.cols*0.5);
+	//#pragma omp parallel for
+	for(int j=0;j<src.rows;j++)
+	{
+		T* s = src.ptr<T>(j);
+
+		s[0]=maxval;
+		s[src.cols-1]=maxval;
+
+		for(int i=1;i<src.cols-1;i++)
+		{
+			if(s[i]==invalidvalue)
+			{
+				int t=i;
+				do
+				{
+					t++;
+					if(t>src.cols-1)break;
+				}while(s[t]==invalidvalue);
+
+				const T dd = min(s[i-1],s[t]);
+				if(t-i>MAX_LENGTH)
+				{
+					for(int n=0;n<src.cols;n++)
+					{
+						s[n]=invalidvalue;
+					}
+				}
+				else
+				{
+					for(;i<t;i++)
+					{
+						s[i]=dd;
+					}
+				}
+			}
+		}
+		s[0]=s[1];
+		s[src.cols-1]=s[src.cols-2];
+	}
+}
+
+template <class T>
+static void fillOcclusionInv_(Mat& src, const T invalidvalue, const T minval)
+{
+	const int MAX_LENGTH=(int)(src.cols);
+	//#pragma omp parallel for
+	for(int j=0;j<src.rows;j++)
+	{
+		T* s = src.ptr<T>(j);
+
+		s[0]=minval;
+		s[src.cols-1]=minval;
+
+		for(int i=1;i<src.cols-1;i++)
+		{
+			if(s[i]==invalidvalue)
+			{
+				int t=i;
+				do
+				{
+					t++;
+					if(t>src.cols-1)break;
+				}while(s[t]==invalidvalue);
+
+				const T dd = max(s[i-1],s[t]);
+				if(t-i>MAX_LENGTH)
+				{
+					for(int n=0;n<src.cols;n++)
+					{
+						s[n]=invalidvalue;
+					}
+				}
+				else
+				{
+					for(;i<t;i++)
+					{
+						s[i]=dd;
+					}
+				}
+			}
+		}
+		s[0]=s[1];
+		s[src.cols-1]=s[src.cols-2];
+	}
+}
+
+enum
+{
+	FILL_DISPARITY =0,
+	FILL_DEPTH =1
+};
+void fillOcclusion(Mat& src, int invalidvalue, int disp_or_depth)
+{
+    if(disp_or_depth==FILL_DEPTH)
+    {
+        if(src.type()==CV_8U)
+        {
+            fillOcclusionInv_<uchar>(src, (uchar)invalidvalue,0);
+        }
+        else if(src.type()==CV_16S)
+        {
+            fillOcclusionInv_<short>(src, (short)invalidvalue,0);
+        }
+        else if(src.type()==CV_16U)
+        {
+            fillOcclusionInv_<unsigned short>(src, (unsigned short)invalidvalue,0);
+        }
+        else if(src.type()==CV_32F)
+        {
+            fillOcclusionInv_<float>(src, (float)invalidvalue,0.f);
+        }
+    }
+    else
+    {
+        if(src.type()==CV_8U)
+        {
+            fillOcclusion_<uchar>(src, (uchar)invalidvalue,255);
+        }
+        else if(src.type()==CV_16S)
+        {
+			fillOcclusion_<short>(src, (short)invalidvalue,SHRT_MAX);
+        }
+        else if(src.type()==CV_16U)
+        {
+			fillOcclusion_<unsigned short>(src, (unsigned short)invalidvalue,USHRT_MAX);
+        }
+        else if(src.type()==CV_32F)
+        {
+			fillOcclusion_<float>(src, (float)invalidvalue,FLT_MAX);
+        }
+    }
+}
+
+void disp16S2depth16U(Mat& src, Mat& dest, const float focal_baseline, float a, float b)
+{
+	if(dest.empty())dest = Mat::zeros(src.size(),CV_16U);
+	if(dest.type()!=CV_16U)dest = Mat::zeros(src.size(),CV_16U);
+
+	
+#if CV_SSE4_1
+	const int ssesize = src.size().area()/16;
+	const int remsize = src.size().area()-16*ssesize;
+	short* s=src.ptr<short>(0);
+	ushort*  d=dest.ptr<ushort>(0);
+	const __m128 maf = _mm_set1_ps(a*focal_baseline);
+	if(b==0.f)
+	{
+		for(int i=0;i<ssesize;i++)
+		{
+			__m128i r0 = _mm_loadl_epi64((const __m128i*)(s));
+			__m128i r1 = _mm_loadl_epi64((const __m128i*)(s + 4));
+
+			__m128 v1 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r0, r0), 16));
+			__m128 v2 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r1, r1), 16));
+
+			r0 = _mm_loadl_epi64((const __m128i*)(s + 8));
+			r1 = _mm_loadl_epi64((const __m128i*)(s + 12));
+			__m128 v3 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r0, r0), 16));
+			__m128 v4 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r1, r1), 16));
+
+			v1 = _mm_div_ps(maf,v1);
+			v2 = _mm_div_ps(maf,v2);
+			v3 = _mm_div_ps(maf,v3);
+			v4 = _mm_div_ps(maf,v4);
+
+			_mm_stream_si128((__m128i*)(d),_mm_packs_epi32(_mm_cvtps_epi32(v1),_mm_cvtps_epi32(v2)));
+			_mm_stream_si128((__m128i*)(d+8),_mm_packs_epi32(_mm_cvtps_epi32(v3),_mm_cvtps_epi32(v4)));
+				
+			s+=16;
+			d+=16;
+		}
+	}
+	else
+	{
+		const __m128 mb = _mm_set1_ps(b);
+		for(int i=0;i<ssesize;i++)
+		{
+			__m128i r0 = _mm_loadl_epi64((const __m128i*)(s));
+			__m128i r1 = _mm_loadl_epi64((const __m128i*)(s + 4));
+
+			__m128 v1 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r0, r0), 16));
+			__m128 v2 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r1, r1), 16));
+
+			r0 = _mm_loadl_epi64((const __m128i*)(s + 8));
+			r1 = _mm_loadl_epi64((const __m128i*)(s + 12));
+			__m128 v3 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r0, r0), 16));
+			__m128 v4 = _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(r1, r1), 16));
+
+			v1 = _mm_add_ps(_mm_div_ps(maf,v1),mb);
+			v2 = _mm_add_ps(_mm_div_ps(maf,v2),mb);
+			v3 = _mm_add_ps(_mm_div_ps(maf,v3),mb);
+			v4 = _mm_add_ps(_mm_div_ps(maf,v4),mb);
+
+			_mm_stream_si128((__m128i*)(d),_mm_packs_epi32(_mm_cvtps_epi32(v1),_mm_cvtps_epi32(v2)));
+			_mm_stream_si128((__m128i*)(d+8),_mm_packs_epi32(_mm_cvtps_epi32(v3),_mm_cvtps_epi32(v4)));
+
+			s+=16;
+			d+=16;
+		}
+	}
+	for(int i=0;i<remsize;i++)
+	{
+		*d = cvRound(a*focal_baseline / *s + b);
+		s++;
+		d++;
+	}
+	
+#else
+	Mat temp;
+	divide(a*focal_baseline,src,temp);
+	add(temp,b,temp);
+	temp.convertTo(dest,CV_8U);
+#endif
+}
+
+
+void depth32F2disp8U(Mat& src, Mat& dest, const float focal_baseline, float a, float b)
+{
+	if(dest.empty())dest = Mat::zeros(src.size(),CV_8U);
+	if(dest.type()!=CV_8U)dest = Mat::zeros(src.size(),CV_8U);
+
+#if CV_SSE4_1
+	const int ssesize = src.size().area()/16;
+	const int remsize = src.size().area()-16*ssesize;
+	float* s=src.ptr<float>(0);
+	uchar*  d=dest.ptr<uchar>(0);
+	const __m128 maf = _mm_set1_ps(a*focal_baseline);
+	if(b==0.f)
+	{
+		for(int i=0;i<ssesize;i++)
+		{
+			__m128 v1 = _mm_load_ps(s);
+			__m128 v2 = _mm_load_ps(s+4);
+			__m128 v3 = _mm_load_ps(s+8);
+			__m128 v4 = _mm_load_ps(s+12);
+
+			v1 = _mm_div_ps(maf,v1);
+			v2 = _mm_div_ps(maf,v2);
+			v3 = _mm_div_ps(maf,v3);
+			v4 = _mm_div_ps(maf,v4);
+
+			_mm_stream_si128((__m128i*)(d),_mm_packus_epi16(
+				_mm_packs_epi32(_mm_cvtps_epi32(v1),_mm_cvtps_epi32(v2)),
+				_mm_packs_epi32(_mm_cvtps_epi32(v3),_mm_cvtps_epi32(v4))
+				));
+			s+=16;
+			d+=16;
+		}
+	}
+	else
+	{
+		const __m128 mb = _mm_set1_ps(b);
+		for(int i=0;i<ssesize;i++)
+		{
+
+			__m128 v1 = _mm_load_ps(s);
+			__m128 v2 = _mm_load_ps(s+4);
+			__m128 v3 = _mm_load_ps(s+8);
+			__m128 v4 = _mm_load_ps(s+12);
+
+			v1 = _mm_add_ps(_mm_div_ps(maf,v1),mb);
+			v2 = _mm_add_ps(_mm_div_ps(maf,v2),mb);
+			v3 = _mm_add_ps(_mm_div_ps(maf,v3),mb);
+			v4 = _mm_add_ps(_mm_div_ps(maf,v4),mb);
+
+			_mm_stream_si128((__m128i*)(d),_mm_packus_epi16(
+				_mm_packs_epi32(_mm_cvtps_epi32(v1),_mm_cvtps_epi32(v2)),
+				_mm_packs_epi32(_mm_cvtps_epi32(v3),_mm_cvtps_epi32(v4))
+				));
+			s+=16;
+			d+=16;
+		}
+	}
+	for(int i=0;i<remsize;i++)
+	{
+		*d = cvRound(a*focal_baseline / *s + b);
+		s++;
+		d++;
+	}
+	
+#else
+	Mat temp;
+	divide(a*focal_baseline,src,temp);
+	add(temp,b,temp);
+	temp.convertTo(dest,CV_8U);
+#endif
 }
 
 void depth16U2disp8U(Mat& src, Mat& dest, const float focal_baseline, float a, float b)

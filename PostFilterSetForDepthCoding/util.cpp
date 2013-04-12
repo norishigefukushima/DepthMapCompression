@@ -318,15 +318,19 @@ void guiAlphaBlend(Mat& src1, Mat& src2)
 	else s2 = src2;
 	namedWindow("alphaBlend");
 	int a = 0;
-	createTrackbar("a","alphaBlend",&a,100);
+	createTrackbar("a:0-s1,100-s2","alphaBlend",&a,100);
 	int key = 0;
 	Mat show;
 	while(key!='q')
 	{
-		addWeighted(s1,a/100.0,s2,1.0-a/100.0,0.0,show);
+		addWeighted(s1,1.0-a/100.0,s2,a/100.0,0.0,show);
 		imshow("alphaBlend",show);
 		key = waitKey(1);
+		if(key=='f')
+		{
+			a = (a!=0) ? 0 : 100;
+			setTrackbarPos("a:0-s1,100-s2","alphaBlend",a);
+		}
 	}
-	
 }
 

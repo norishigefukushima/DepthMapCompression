@@ -42,16 +42,17 @@ void splitBGRLineInterleave_8u( const Mat& src, Mat& dest)
 	//const __m128i ssmask3 = _mm_setr_epi8(11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10);
 
 	const __m128i bmask1 = _mm_setr_epi8
-		(255,255,255,255,255,255,0,0,0,0,0,0,0,0,0,0);
+		(0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0,0,0,0,0,0,0,0,0,0);
 
 	const __m128i bmask2 = _mm_setr_epi8
-		(255,255,255,255,255,255,255,255,255,255,255,0,0,0,0,0);
+		
+		(0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0,0,0,0,0);
 
 	const __m128i bmask3 = _mm_setr_epi8
-		(255,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0);
+		(0xFF,0xFF,0xFF,0xFF,0xFF,0,0,0,0,0,0,0,0,0,0,0);
 
 	const __m128i bmask4 = _mm_setr_epi8
-		(255,255,255,255,255,255,255,255,255,255,0,0,0,0,0,0);	
+		(0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0,0,0,0,0,0);	
 
 	__m128i a,b,c;
 

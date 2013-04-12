@@ -1,7 +1,9 @@
-#Project Page
+Project Page
 http://nma.web.nitech.ac.jp/fukushima/research/depthmap_postfilter.html
 
 The solution file of PostFilterSetForDepthCoding.sln is Visual Studio 2010 file.
+In the main function, there are 2 examples; one is (1) the simplest example of our post filter set,
+named simpleTest(), and the other is (2) point cloud rendering app for depth map compression, named pointcloudTest();
 
 The solution requires OpenCV2.4, Intel Threading Building Blocks (TBB), and OpenNI (if necessary).
 In addition, the codes use SSE4.1. If your CPU does not support SSE4.1, code will not work. 

@@ -5,6 +5,14 @@
 using namespace std;
 using namespace cv;
 
+//point cloud rendering
+Point3d get3DPointfromXYZ(Mat& xyz, Size& imsize, Point& pt);
+void reprojectXYZ(const Mat& depth, Mat& xyz, Mat& intrinsic, Mat& distortion, float a=1.0, float b=0.0);
+void reprojectXYZ(const Mat& depth, Mat& xyz, double f);
+void projectImagefromXYZ(const Mat& image, Mat& destimage, const Mat& xyz, const Mat& R, const Mat& t, const Mat& K, const Mat& dist, Mat& mask, const bool isSub);
+void projectImagefromXYZ(const Mat& image, Mat& destimage, const Mat& xyz, const Mat& R, const Mat& t, const Mat& K, const Mat& dist, Mat& mask, const bool isSub, vector<Point2f>& pt, Mat& depth);
+
+//oocclusion filling
 enum
 {
 	FILL_DISPARITY =0,
@@ -12,8 +20,13 @@ enum
 };
 void fillOcclusion(Mat& src, int invalidvalue, int disp_or_depth=FILL_DEPTH);
 void fillSmallHole(const Mat& src, Mat& dest);
+
+//disparity depth converter
+void depth32F2disp8U(Mat& src, Mat& dest, const float focal_baseline, float a=1.f, float b=0.f);
+void disp16S2depth16U(Mat& src, Mat& dest, const float focal_baseline, float a=1.f, float b=0.f);
 void depth16U2disp8U(Mat& src, Mat& dest, const float focal_baseline, float a=1.f, float b=0.f);
 void disp8U2depth32F(Mat& src, Mat& dest, const float focal_baseline, float a=1.f, float b=0.f);
+
 void projectPointsSimple(const Mat& xyz, const Mat& R, const Mat& t, const Mat& K, vector<Point2f>& dest);//multi points projection
 void projectPointSimple(Point3d& xyz, const Mat& R, const Mat& t, const Mat& K, Point2d& dest);//single point projection
 //geometric functions
