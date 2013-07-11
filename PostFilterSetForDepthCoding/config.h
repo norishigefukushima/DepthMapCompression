@@ -7,6 +7,6 @@
 //#define CAP_KINECT 1
 
 //for libjpegturbo: faster jpeg encoder (64 bit only)
-#define JPEG_TURBO 1
+//#define JPEG_TURBO 1
 
 #endif
