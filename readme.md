@@ -24,5 +24,6 @@ The current setup is as follows (OpenNI off, libjpegturbo off);
 //#define JPEG_TURBO 1
 
 If you can use Kinect and/or JPEG_turbo, please un-comment out.
+The attached lib file of jpeg.lib is 64 bit version. If your OS is 32bit version, please do not use JPEG_TURBO option.  
 
 
