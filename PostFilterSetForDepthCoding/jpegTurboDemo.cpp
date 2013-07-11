@@ -2,8 +2,8 @@
 
 #undef FAR
 #include "jpeglib.h"
-#pragma comment(lib, "jpeg-static.lib")
-
+//#pragma comment(lib, "jpeg-static.lib")
+#pragma comment(lib, "jpeg.lib")
 typedef struct {
 	struct jpeg_source_mgr pub;	/* public fields */
 	JOCTET * buffer;

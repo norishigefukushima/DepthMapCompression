@@ -1,4 +1,5 @@
 #include "util.h"
+#include <stdarg.h>
 
 void rotYaw(Mat& src, Mat& dest, const double yaw)
 {
