@@ -1,5 +1,6 @@
 Project Page
 http://nma.web.nitech.ac.jp/fukushima/research/depthmap_postfilter.html
+=============
 
 The solution file of PostFilterSetForDepthCoding.sln is Visual Studio 2010 file.
 In the main function, there are 2 examples; one is (1) the simplest example of our post filter set,
