@@ -1,9 +1,0 @@
-﻿2013/07/11 16:56:03 にビルドを開始しました。
-     1>ノード 2 上のプロジェクト "C:\fukushima\docs\GitHub\DepthMapCompression\DepthMapCompression\PostFilterSetForDepthCoding\PostFilterSetForDepthCoding.vcxproj" (clean ターゲット)。
-     1>_PrepareForClean:
-         ファイル "x64\Release\PostFilterSetForDepthCoding.lastbuildstate" を削除しています。
-     1>プロジェクト "C:\fukushima\docs\GitHub\DepthMapCompression\DepthMapCompression\PostFilterSetForDepthCoding\PostFilterSetForDepthCoding.vcxproj" (clean ターゲット) のビルドが完了しました。
-
-ビルドに成功しました。
-
-経過時間 00:00:00.02

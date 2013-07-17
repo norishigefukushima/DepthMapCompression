@@ -17,8 +17,7 @@ void smallGaussianBlur(const Mat& src, Mat& dest, const int d, const double sigm
 void maxFilter(const Mat& src, Mat& dest, Size ksize, int borderType=cv::BORDER_REPLICATE);
 void minFilter(const Mat& src, Mat& dest, Size ksize, int borderType=cv::BORDER_REPLICATE);
 void blurRemoveMinMax(Mat& src, Mat& dest, const int r);
-void blurRemoveMinMax(Mat& src, Mat& dest, const int r, const int threshold);
-void blurRemoveMinMaxBF(Mat& src, Mat& dest, const int r, const int threshold);
+void blurRemoveMinMaxBase(Mat& src, Mat& dest, const int r);
 
 //range filter functions
 enum
