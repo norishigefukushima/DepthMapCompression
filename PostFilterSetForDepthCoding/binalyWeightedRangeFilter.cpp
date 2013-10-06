@@ -812,10 +812,18 @@ void binalyWeightedRangeFilter(const Mat& src, Mat& dst, Size kernelSize, float 
 			binalyWeightedRangeFilter_32f(srcf,destf,kernelSize,threshold,borderType);
 			destf.convertTo(dst,CV_16S);
 		}
+		if(src.type()==CV_MAKE_TYPE(CV_16U,src.channels()))
+		{
+			Mat srcf;
+			Mat destf(src.size(),CV_32F);
+			src.convertTo(srcf,CV_32F);
+
+			binalyWeightedRangeFilter_32f(srcf,destf,kernelSize,threshold,borderType);
+			destf.convertTo(dst,CV_16U);
+		}
 		else if(src.type()==CV_MAKE_TYPE(CV_32F,src.channels()))
 		{
 			binalyWeightedRangeFilter_32f(src,dst,kernelSize,threshold,borderType);
-
 		}
 	}
 	else if(method==SEPARABLE_KERNEL)

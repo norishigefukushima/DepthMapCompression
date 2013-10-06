@@ -73,27 +73,29 @@ static void onMouse(int event, int x, int y, int flags, void* param)
 
 void pointcloudTest(Mat& image, Mat& srcDepth16)
 {	
-	namedWindow("image");
+	string wname = "image";
+	string wname2= "image";
+	namedWindow(wname);
 	Point pt = Point(image.cols/2,image.rows/2);
-	cv::setMouseCallback("image", (MouseCallback)onMouse,(void*)&pt );
+	cv::setMouseCallback(wname, (MouseCallback)onMouse,(void*)&pt );
 
 	bool isH264=false;
 	int q = 80;
-	createTrackbar("JPEG q/PNG","image",&q,102);
+	createTrackbar("JPEG q/PNG",wname2,&q,102);
 
 	int mr = 1;
-	createTrackbar("md radius","image",&mr,10);
+	createTrackbar("md radius",wname2,&mr,10);
 	int gr = 0;
-	createTrackbar("Gauss radius","image",&gr,10);
+	createTrackbar("Gauss radius",wname2,&gr,10);
 	int br = 1;
-	createTrackbar("br radius","image",&br,10);
+	createTrackbar("br radius",wname2,&br,10);
 	int dr = 3;
-	createTrackbar("wbd radius","image",&dr,10);
+	createTrackbar("wbd radius",wname2,&dr,10);
 	int thresh = 65;
-	createTrackbar("th","image",&thresh,255);
+	createTrackbar("th",wname2,&thresh,255);
 
 	int rrr =1;
-	createTrackbar("post med radius","image",&rrr,10);
+	createTrackbar("post med radius",wname2,&rrr,10);
 
 	const int xmax = 8000;
 	const int ymax = 8000;
@@ -104,25 +106,25 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 	const int inityaw = 90;
 
 	int x = initx;
-	createTrackbar("x","image",&x,xmax);
+	createTrackbar("x",wname2,&x,xmax);
 	int y = initx;
-	createTrackbar("y","image",&y,ymax);
+	createTrackbar("y",wname2,&y,ymax);
 	int z = initz;
-	createTrackbar("z","image",&z,8000);
+	createTrackbar("z",wname2,&z,8000);
 
 	int pitch = initpitch;
-	createTrackbar("pitch","image",&pitch,180);
+	createTrackbar("pitch",wname2,&pitch,180);
 	int yaw = inityaw;
-	createTrackbar("yaw","image",&yaw,180);
+	createTrackbar("yaw",wname2,&yaw,180);
 
 	int px = image.cols/2;
-	createTrackbar("look at x","image",&px,image.cols-1);
+	createTrackbar("look at x",wname2,&px,image.cols-1);
 	int py = image.rows/2;
-	createTrackbar("look at y","image",&py,image.rows-1);
+	createTrackbar("look at y",wname2,&py,image.rows-1);
 	int sub=2;
-	createTrackbar("render Opt","image",&sub,3);
+	createTrackbar("render Opt",wname2,&sub,3);
 	int sw = 0;
-	createTrackbar("sw","image",&sw,2);
+	createTrackbar("sw",wname2,&sw,2);
 
 	Mat destImage(image.size(),CV_8UC3);	//rendered image
 	Mat view;//drawed image
@@ -144,7 +146,7 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 	Point3d look = get3DPointfromXYZ(xyz,image.size(),pt);
 
 	int count=0;
-	bool isDrawLine = true;
+	bool isDrawLine = false;
 	bool isWrite=false;
 	bool isLookat = false;
 
@@ -193,8 +195,8 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 		//from mouse input
 		x = (int)(xmax*(double)pt.x/(double)image.cols + 0.5);
 		y = (int)(ymax*(double)pt.y/(double)image.rows + 0.5);
-		setTrackbarPos("x","image",x);
-		setTrackbarPos("y","image",y);
+		//setTrackbarPos("x",wname2,x);
+		//setTrackbarPos("y",wname2,y);
 
 		tm.start();
 #ifdef CAP_KINECT
@@ -270,7 +272,8 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 #if JPEG_TURBO
 				int size;
 				double bpp;
-				degradeJPEG(srcDisp,disp,q,0,true,size,bpp);
+				//degradeJPEG(srcDisp,disp,q,0,true,size,bpp);
+				degradeJPEG(srcDisp,disp,q,0,false,size,bpp);
 				bps = 30*8.0*size/1000000.0;
 #else			
 				vector<uchar> buff;
@@ -300,12 +303,12 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 				pfs.filterDisp8U2Depth32F(disp,depthF,FOCUS,BASELINE,AMP_DISP,mr,gr,br,dr,(float)thresh,FULL_KERNEL);
 				depth32F2disp8U(depthF, dshow, FOCUS*BASELINE, 2.6f,0.f);
 			}
-			else if(postFilterMethod==1)
+			/*else if(postFilterMethod==1)
 			{
 				boundaryReconstructionFilter(disp,disp,Size(13,13),1.0,1.0,1.0);
 				disp8U2depth32F(disp,depthF,FOCUS*BASELINE,AMP_DISP,0.f);
 				depth32F2disp8U(depthF, dshow, FOCUS*BASELINE, 2.6f,0.f);
-			}
+			}*/
 			else
 			{
 				disp8U2depth32F(disp,depthF,FOCUS*BASELINE,AMP_DISP,0.f);
@@ -412,7 +415,7 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 			putText(view,format("Look at: Fix",bps),Point(30,150),CV_FONT_HERSHEY_DUPLEX,1.0,CV_RGB(255,255,255));
 
 		//show image
-		imshow("image",view);
+		imshow(wname,view);
 		key = waitKey(1);	
 
 		if(key=='h')
@@ -445,9 +448,9 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 			pitch = initpitch;
 			yaw = inityaw;
 
-			setTrackbarPos("z","image",z);
-			setTrackbarPos("pitch","image",pitch);
-			setTrackbarPos("yaw","image",yaw);
+			setTrackbarPos("z",wname2,z);
+			setTrackbarPos("pitch",wname2,pitch);
+			setTrackbarPos("yaw",wname2,yaw);
 		}
 		if(key == 'p')
 		{
@@ -458,9 +461,26 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 		{
 			sw++;
 			if(sw>2) sw=0;
-			setTrackbarPos("sw","image",sw);
+			setTrackbarPos("sw",wname2,sw);
 
 		}
+	}
+}
+
+void binalyWeightedRangeFilterTest(Mat& src)
+{
+	Mat dest;
+	int iter = 10;
+	Size ksize = Size(11,11);
+	float thresh = 8;
+	int method = FULL_KERNEL;
+
+	{
+	CalcTime t("1");
+	for(int i=0;i<iter;i++)
+	{
+		binalyWeightedRangeFilter(src, dest,ksize, thresh, method);
+	}
 	}
 }
 
@@ -500,7 +520,7 @@ void simpleTest(Mat& depth16)//input is 16 bit unsinged short depth map
 
 int main(int argc, char** argv)
 {
-	if(!checkHardwareSupport(CV_CPU_SSE4_1))cout<<"The CPU is not support SSE4.1\nPlease comment out CV_SSE4_ 1 in config.h\n";
+	if(!checkHardwareSupport(CV_CPU_SSE4_1))cout<<"The CPU is not support SSE4.1\n";
 	cout<<"quit key is 'q'\n\n";
 	//read image
 	//Mat src = imread("dataset/kinect/desk_1_1.png");
@@ -510,7 +530,8 @@ int main(int argc, char** argv)
 
 	//(1) The simplest example of our post filter set
 	//simpleTest(depth16);
+	binalyWeightedRangeFilterTest(depth16);
 
 	//(2) App for depth map compression
-	pointcloudTest(src,depth16);
+	//pointcloudTest(src,depth16);
 }
