@@ -97,6 +97,27 @@ void lookat(const Point3d& from, const Point3d& to, Mat& destR)
 	Rodrigues(rotaxis,destR);	
 }
 
+template <class T>
+void showDiffPoint_(Mat& src1, Mat& src2)
+{
+	for(int j=0;j<src1.rows;j++)
+	{
+		for(int i=0;i<src1.cols;i++)
+		{
+			if (src1.at<T>(j,i) != src2.at<T>(j,i))
+			{
+				cout<<i<<","<<j<<", absdiff: "<<abs(src1.at<T>(j,i) - src2.at<T>(j,i))<<endl;
+			}
+		}
+	}
+}
+void showDiffPoint(Mat& src1, Mat& src2)
+{
+	if(src1.depth()==CV_8U) showDiffPoint_<uchar>( src1, src2);
+	if(src1.depth()==CV_16U) showDiffPoint_<ushort>( src1, src2);
+	if(src1.depth()==CV_16S) showDiffPoint_<short>( src1, src2);
+	if(src1.depth()==CV_32F) showDiffPoint_<float>( src1, src2);
+}
 double getPSNR(Mat& src1, Mat& src2)
 {
 	CV_Assert(src1.channels()==src2.channels() && src1.type()==src2.type() && src1.data !=src2.data);
@@ -117,15 +138,55 @@ double getPSNR(Mat& src1, Mat& src2)
 	//cout<<s1.cols<<","<<s1.rows<<endl;
 	//cout<<s2.cols<<","<<s2.rows<<endl;
 	Mat sub;
-	subtract(s1,s2,sub,Mat(),CV_32F);
+
+	subtract(s1,s2,sub,noArray(),CV_32F);
 	multiply(sub,sub,sub);
 
 	int count = s1.size().area();
 	Scalar v = cv::mean(sub);
-
 	if(v.val[0] == 0.0 || count==0)
 	{
-		return -1;
+		return -1.0;
+	}
+	else
+	{
+		psnr = 10.0*log10((255.0*255.0)/v.val[0]);
+		return psnr;
+	}
+}
+
+double getPSNR(Mat& src1, Mat& src2, int bb)
+{
+	Mat mask = Mat::zeros(src1.size(),CV_8U);
+	rectangle(mask, Rect(bb,bb,src1.cols-2*bb,src1.rows-2*bb),cv::Scalar::all(255),CV_FILLED);
+
+	CV_Assert(src1.channels()==src2.channels() && src1.type()==src2.type() && src1.data !=src2.data);
+	double psnr;
+
+	Mat s1,s2;
+	if(src1.channels()==3)
+	{
+		cvtColor(src1,s1,CV_BGR2GRAY);
+		cvtColor(src2,s2,CV_BGR2GRAY);
+	}
+	else
+	{
+		s1=src1;
+		s2=src2;
+	}
+
+	//cout<<s1.cols<<","<<s1.rows<<endl;
+	//cout<<s2.cols<<","<<s2.rows<<endl;
+	Mat sub;
+
+	subtract(s1,s2,sub,noArray(),CV_32F);
+	multiply(sub,sub,sub);
+
+	int count = s1.size().area();
+	Scalar v = cv::mean(sub, mask);
+	if(v.val[0] == 0.0 || count==0)
+	{
+		return -1.0;
 	}
 	else
 	{

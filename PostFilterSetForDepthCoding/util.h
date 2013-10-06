@@ -44,6 +44,9 @@ double degradeImagex264(Mat& src, Mat& dest, int qp, int& size, double& bpp);
 //test functions
 void guiAlphaBlend(Mat& src1, Mat& src2);
 double getPSNR(Mat& src1, Mat& src2);
+double getPSNR(Mat& src1, Mat& src2, int bb);
+
+void showDiffPoint(Mat& src1, Mat& src2);
 
 class ConsoleImage
 {

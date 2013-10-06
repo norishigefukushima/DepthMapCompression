@@ -469,19 +469,39 @@ void pointcloudTest(Mat& image, Mat& srcDepth16)
 
 void binalyWeightedRangeFilterTest(Mat& src)
 {
-	Mat dest;
+	Mat dest1,dest2;
 	int iter = 10;
-	Size ksize = Size(11,11);
+	int iter2 = 3;
+	Size ksize = Size(5,5);
 	float thresh = 8;
-	int method = FULL_KERNEL;
+	Mat input;
+	src.convertTo(input,CV_32F);
+	{
+		for(int j=0;j<iter2;j++)
+		{
+		CalcTime t("normal");
+		for(int i=0;i<iter;i++)
+		{
+			binalyWeightedRangeFilter(input, dest1, ksize, thresh, FULL_KERNEL);
+		}
+		}
+	}
+	{
+		for(int j=0;j<iter2;j++)
+		{
+		CalcTime t("pair");
+		for(int i=0;i<iter;i++)
+		{
+			binalyWeightedRangeFilter(input, dest2, ksize, thresh, FULL_KERNEL_PAIR);
+		}
+		}
+	}
+	//Mat temp;dest1.convertTo(temp,CV_8U,0.1);imshow("a",temp);waitKey(); dest2.convertTo(temp,CV_8U,0.1);imshow("a",temp);waitKey();
 
-	{
-	CalcTime t("1");
-	for(int i=0;i<iter;i++)
-	{
-		binalyWeightedRangeFilter(src, dest,ksize, thresh, method);
-	}
-	}
+	cout<<mean(dest1).val[0]<<endl;
+	cout<<mean(dest2).val[0]<<endl;
+	cout<<"PSNR: "<<getPSNR(dest1,dest2)<<endl;
+	//showDiffPoint(dest1,dest2);
 }
 
 void simpleTest(Mat& depth16)//input is 16 bit unsinged short depth map
@@ -530,8 +550,8 @@ int main(int argc, char** argv)
 
 	//(1) The simplest example of our post filter set
 	//simpleTest(depth16);
-	binalyWeightedRangeFilterTest(depth16);
+	//binalyWeightedRangeFilterTest(depth16);
 
 	//(2) App for depth map compression
-	//pointcloudTest(src,depth16);
+	pointcloudTest(src,depth16);
 }

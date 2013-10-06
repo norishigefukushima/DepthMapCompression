@@ -23,6 +23,7 @@ void blurRemoveMinMaxBase(Mat& src, Mat& dest, const int r);
 enum
 {
 	FULL_KERNEL = 0,
+	FULL_KERNEL_PAIR,
 	SEPARABLE_KERNEL
 };
 void binalyWeightedRangeFilter(const Mat& src, Mat& dst, Size kernelSize, float threshold, int method, int borderType=cv::BORDER_REPLICATE);

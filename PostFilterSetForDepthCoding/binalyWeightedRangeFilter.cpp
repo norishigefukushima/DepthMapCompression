@@ -504,7 +504,6 @@ public:
 				{
 					const __m128 mth = _mm_set1_ps(threshold);
 					const __m128 ones = _mm_set1_ps(1.f);
-					const __m128 zeros = _mm_set1_ps(0.f);
 					for(; j < size.width; j+=4)//4 pixel unit
 					{
 						int* ofs = &space_ofs[0];
@@ -521,7 +520,7 @@ public:
 
 							__m128 _w =  _mm_cmple_ps(_mm_and_ps(_mm_sub_ps(sval0,sref), *(const __m128*)v32f_absmask),mth);
 
-							_w = _mm_blendv_ps(zeros,ones,_w);
+							_w = _mm_and_ps(_w,ones);// //_w = _mm_blendv_ps(zeros,ones,_w);
 
 							sref = _mm_mul_ps(_w, sref);
 							tval = _mm_add_ps(tval,sref);
@@ -547,6 +546,252 @@ public:
 					}
 					dptr[j] = sum/wsum;
 				}
+			}
+		}
+		else
+		{
+			//underconstruction
+			const int sstep = 3*temp->cols;
+			const int dstep = dest->cols*3;
+			float* sptrb = (float*)temp->ptr(3*radiusV+3*range.start  ) + 4 * (radiusH/4 + 1);
+			float* sptrg = (float*)temp->ptr(3*radiusV+3*range.start+1) + 4 * (radiusH/4 + 1);
+			float* sptrr = (float*)temp->ptr(3*radiusV+3*range.start+2) + 4 * (radiusH/4 + 1);
+
+			float* dptr = dest->ptr<float>(range.start);
+
+			for(i = range.start; i != range.end; i++,sptrr+=sstep,sptrg+=sstep,sptrb+=sstep,dptr+=dstep )
+			{	
+				j=0;
+#if CV_SSE4_1
+				if( haveSSE4 )
+				{
+					const __m128 mth = _mm_set1_ps(threshold);
+					const __m128 ones = _mm_set1_ps(1.f);
+					const __m128 zeros = _mm_set1_ps(0.f);
+
+					for(; j < size.width; j+=4)
+					{
+						int* ofs = &space_ofs[0];
+
+						const float* sptrrj = sptrr+j;
+						const float* sptrgj = sptrg+j;
+						const float* sptrbj = sptrb+j;
+
+						const __m128 bval = _mm_load_ps((sptrbj));
+						const __m128 gval = _mm_load_ps((sptrgj));
+						const __m128 rval = _mm_load_ps((sptrrj));
+
+						__m128 wval1 = _mm_set1_ps(0.0f);
+						__m128 rval1 = _mm_set1_ps(0.0f);
+						__m128 gval1 = _mm_set1_ps(0.0f);
+						__m128 bval1 = _mm_set1_ps(0.0f);
+
+						for(k = 0;  k < maxk; k ++, ofs++)
+						{
+							__m128 bref = _mm_loadu_ps((sptrbj+*ofs));
+							__m128 gref = _mm_loadu_ps((sptrgj+*ofs));
+							__m128 rref = _mm_loadu_ps((sptrrj+*ofs));
+
+							__m128 v = _mm_add_ps(_mm_add_ps(
+								_mm_and_ps(_mm_sub_ps(rval,rref), *(const __m128*)v32f_absmask),
+								_mm_and_ps(_mm_sub_ps(gval,gref), *(const __m128*)v32f_absmask)),
+								_mm_and_ps(_mm_sub_ps(bval,bref), *(const __m128*)v32f_absmask));
+
+							__m128 _w =  _mm_cmple_ps(v, mth);
+							_w = _mm_blendv_ps(zeros,ones,_w);
+
+							rref = _mm_mul_ps(_w, rref);
+							gref = _mm_mul_ps(_w, gref);
+							bref = _mm_mul_ps(_w, bref);
+
+							rval1 = _mm_add_ps(rval1,rref);
+							gval1 = _mm_add_ps(gval1,gref);
+							bval1 = _mm_add_ps(bval1,bref);
+							wval1 = _mm_add_ps(wval1,_w);
+						}
+
+						rval1 = _mm_div_ps(rval1,wval1);
+						gval1 = _mm_div_ps(gval1,wval1);
+						bval1 = _mm_div_ps(bval1,wval1);
+
+						float* dptrc = dptr+3*j;
+						__m128 a = _mm_shuffle_ps(rval1,rval1,_MM_SHUFFLE(3,0,1,2));
+						__m128 b = _mm_shuffle_ps(bval1,bval1,_MM_SHUFFLE(1,2,3,0));
+						__m128 c = _mm_shuffle_ps(gval1,gval1,_MM_SHUFFLE(2,3,0,1));
+
+						_mm_stream_ps((dptrc),_mm_blend_ps(_mm_blend_ps(b,a,4),c,2));
+						_mm_stream_ps((dptrc+4),_mm_blend_ps(_mm_blend_ps(c,b,4),a,2));
+						_mm_stream_ps((dptrc+8),_mm_blend_ps(_mm_blend_ps(a,c,4),b,2));
+					}
+				}
+#endif
+				for(; j < size.width; j++)
+				{
+					const float* sptrrj = sptrr+j;
+					const float* sptrgj = sptrg+j;
+					const float* sptrbj = sptrb+j;
+
+					float r0 = sptrrj[0];
+					float g0 = sptrgj[0];
+					float b0 = sptrbj[0];
+
+					float sum_r=0.0f,sum_b=0.0f,sum_g=0.0f;
+					float wsum=0.0f;
+					for(k=0 ; k < maxk; k++ )
+					{
+						float r = sptrrj[space_ofs[k]], g = sptrgj[space_ofs[k]], b = sptrbj[space_ofs[k]];
+						float w= ((std::abs(b - b0) +std::abs(g - g0) + std::abs(r - r0)) <= threshold) ? 1.f :0.f;
+
+						sum_b += b*w;
+						sum_g += g*w;
+						sum_r += r*w;
+						wsum += w;
+					}
+					wsum = 1.f/wsum;
+					dptr[3*j  ] = sum_b*wsum;
+					dptr[3*j+1] = sum_g*wsum;
+					dptr[3*j+2] = sum_r*wsum;
+				}
+			}
+		}
+	}
+private:
+	const Mat *temp;
+	Mat *dest;
+	int radiusH, radiusV, maxk, *space_ofs;
+	float threshold;
+};
+
+//Acceleration method of this paper
+//Agarwal, D.; Wilf, S.; Dhungel, A.; Prasad, S.K.,
+//"Acceleration of Bilateral Filtering Algorithm for Manycore and Multicore Architectures,"
+//Parallel Processing (ICPP), 2012 41st International Conference on , pp.78,87, Sept. 2012.
+class BinalyWeightedRangeFilter_32f_InvokerSSE4PairSymmetric : public cv::ParallelLoopBody
+{
+public:
+	BinalyWeightedRangeFilter_32f_InvokerSSE4PairSymmetric(Mat& _dest, const Mat& _temp, int _radiusH, int _radiusV, int _maxk,
+		int* _space_ofs, float _threshold) :
+	temp(&_temp), dest(&_dest), radiusH(_radiusH), radiusV(_radiusV),
+		maxk(_maxk), space_ofs(_space_ofs), threshold(_threshold)
+	{
+		DV = Mat::zeros(_temp.size(), CV_MAKETYPE(CV_32F,_dest.channels()));
+		DW = Mat::zeros(_temp.size(), CV_MAKETYPE(CV_32F,_dest.channels()));
+	}
+	~BinalyWeightedRangeFilter_32f_InvokerSSE4PairSymmetric()
+	{
+		int cn=1;
+		Size size = dest->size();
+		for(int i = 0; i < size.height; i++ )
+		{
+			float* sptr =  (float*)temp->ptr<float>(i+radiusV) + 4 * (radiusH/4 + 1);//src image
+			float* dvptr = (float*)DV.ptr<float>(i+radiusV) + 4 * (radiusH/4 + 1);// sumed value
+			float* dwptr = (float*)DW.ptr<float>(i+radiusV) + 4 * (radiusH/4 + 1);// sumed weight
+
+			float* dptr = dest->ptr<float>(i);
+
+			int j=0;
+			for(; j < size.width-8; j+=8 )
+			{
+				__m128 m1 =  _mm_div_ps( _mm_loadu_ps(dvptr+j), _mm_loadu_ps(dwptr+j));
+				__m128 m2 =  _mm_div_ps( _mm_loadu_ps(dvptr+j+4), _mm_loadu_ps(dwptr+j+4));
+				//__m128 m3 =  _mm_div_ps( _mm_loadu_ps(dvptr+j+8), _mm_loadu_ps(dwptr+j+8));
+				//__m128 m4 =  _mm_div_ps( _mm_loadu_ps(dvptr+j+12), _mm_loadu_ps(dwptr+j+12));
+
+				_mm_store_ps(dptr+j,m1);
+				_mm_store_ps(dptr+j+4,m2);
+				//_mm_stream_si128((__m128i*)(dptr+j), _mm_packus_epi16(_mm_packs_epi32( _mm_cvtps_epi32(m1), _mm_cvtps_epi32(m2)) , _mm_packs_epi32( _mm_cvtps_epi32(m3), _mm_cvtps_epi32(m4))));
+				//_mm_storeu_ps( (dptr+j), ));
+			}
+			//for(; j < size.width; j++ )
+			//{
+			//	if(dwptr[j]==0.f)
+			//	{
+			//		;
+			//		//cout<<i<<","<<j<<endl;
+			//		//cout<<dwptr[j]<<endl;
+			//		//getchar();
+			//	}
+			//	else
+			//	dptr[j] = (dvptr[j]/dwptr[j]);
+
+			//}
+		}
+	}
+	virtual void operator() (const Range& range) const
+	{
+		int i, j, k;
+		int cn = dest->channels();
+		Size size = dest->size();
+
+#if CV_SSE4_1
+		const int CV_DECL_ALIGNED(16) v32f_absmask[] = { 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff };
+		bool haveSSE4 = checkHardwareSupport(CV_CPU_SSE4_1);
+#endif
+		if( cn == 1 )
+		{
+			float* sptr =  (float*)temp->ptr<float>(range.start+radiusV) + 4 * (radiusH/4 + 1);//src image
+			float* dvptr = (float*)DV.ptr<float>(range.start+radiusV) + 4 * (radiusH/4 + 1);// sumed value
+			float* dwptr = (float*)DW.ptr<float>(range.start+radiusV) + 4 * (radiusH/4 + 1);// sumed weight
+			float* dptr = dest->ptr<float>(range.start);//dest image
+
+			const int sstep = temp->cols;
+			const int dstep = dest->cols;
+			for(i = range.start; i != range.end; i++,dptr+=dstep,sptr+=sstep, dvptr+=sstep, dwptr+=sstep )
+			{
+				j=0;
+#if CV_SSE4_1
+				if( haveSSE4 )
+				{
+					const __m128 mth = _mm_set1_ps(threshold);
+					const __m128 ones = _mm_set1_ps(1.f);
+					for(; j < size.width; j+=4)//4 pixel unit
+					{
+						int* ofs = &space_ofs[0];
+						//float* spw = space_weight;
+
+						float* sptrj = sptr+j;
+						float* dvptrj = dvptr+j;
+						float* dwptrj = dwptr+j;
+						const __m128 sval0 = _mm_load_ps(sptrj);
+
+						__m128 tval = _mm_setzero_ps();
+						__m128 wval = _mm_setzero_ps();
+						for(k = 0;  k < maxk; k ++, ofs++)
+						{
+							const int pos = *ofs;
+							__m128 sref = _mm_loadu_ps((sptrj+pos));
+
+							__m128 _w =  _mm_cmple_ps(_mm_and_ps(_mm_sub_ps(sval0,sref), *(const __m128*)v32f_absmask),mth);
+							_w = _mm_and_ps(_w, ones);
+
+							sref = _mm_mul_ps(sref, _w);
+
+							tval = _mm_add_ps(tval,sref);
+							wval = _mm_add_ps(wval,_w);
+
+							_mm_storeu_ps((dvptrj + pos), _mm_add_ps(_mm_loadu_ps(dvptrj + pos), _mm_mul_ps(sval0, _w))); 
+							_mm_storeu_ps((dwptrj + pos), _mm_add_ps(_mm_loadu_ps(dwptrj + pos), _w)); 
+						}
+						_mm_storeu_ps((dvptrj), _mm_add_ps(_mm_loadu_ps(dvptrj), tval)); 
+						_mm_storeu_ps((dwptrj), _mm_add_ps(_mm_loadu_ps(dwptrj), wval)); 
+					}
+				}
+#endif
+				//for(; j < size.width; j++)
+				//{
+				//	const float val0 = sptr[j];
+				//	float sum=0.0f;
+				//	float wsum=0.0f;
+				//	for(k=0 ; k < maxk; k++ )
+				//	{
+				//		float val = sptr[j + space_ofs[k]];
+				//		float w= (abs(val - val0)<=threshold) ? 1.f :0.f;
+
+				//		sum += val*w;
+				//		wsum += w;
+				//	}
+				//	dptr[j] = sum/wsum;
+				//}
 			}
 		}
 		else
@@ -658,6 +903,8 @@ public:
 		}
 	}
 private:
+	Mat DV; //D_1 in Algorithm 2 pp. 2
+	Mat DW; //D_2 in Algorithm 2 pp. 2
 	const Mat *temp;
 	Mat *dest;
 	int radiusH, radiusV, maxk, *space_ofs;
@@ -665,6 +912,68 @@ private:
 };
 
 
+void binalyWeightedRangeFilter_32fPairSymmetric( const Mat& src, Mat& dst, Size kernelSize, float threshold, int borderType )
+{
+	if(kernelSize.width==0 || kernelSize.height==0){ src.copyTo(dst);return;}
+	int cn = src.channels();
+	int i, j, maxk;
+	Size size = src.size();
+
+	CV_Assert( (src.type() == CV_32FC1 || src.type() == CV_32FC3) &&
+		src.type() == dst.type() && src.size() == dst.size());
+
+	int radiusH = kernelSize.width>>1;
+	int radiusV = kernelSize.height>>1;
+
+	Mat temp;
+
+	int dpad = (4- src.cols%4)%4;
+	int spad =  dpad + (4-(2*radiusH)%16)%4;
+	if(spad<4) spad +=4;
+	int lpad = 4*(radiusH/4+1)-radiusH;
+	int rpad = spad-lpad;
+	if(cn==1)
+	{
+		copyMakeBorder( src, temp, radiusV, radiusV, radiusH+lpad, radiusH+rpad, borderType );
+	}
+	else if (cn==3)
+	{
+		Mat temp2;
+		copyMakeBorder( src, temp2, radiusV, radiusV, radiusH+lpad, radiusH+rpad, borderType );
+		splitBGRLineInterleave(temp2,temp);
+	}
+
+	vector<int> _space_ofs(kernelSize.area()+1);
+	int* space_ofs = &_space_ofs[0];
+
+	// initialize space-related bilateral filter coefficients
+	for( i = 1, maxk = 0; i <= radiusV; i++ )
+	{
+		j = -radiusH;
+		for( ;j <= radiusH; j++ )
+		{
+			double r = std::sqrt((double)i*i + (double)j*j);
+			if( r > max(radiusV,radiusH))
+				continue;
+			space_ofs[maxk++] = (int)(i*temp.cols*cn + j);
+		}
+	}
+	for(int j=-radiusH; j<=0; j++)
+	{
+		double r = std::sqrt((double)j*j);
+		if( r > max(radiusV,radiusH))
+			continue;
+		space_ofs[maxk++] = (int)(j);
+	}
+	
+
+	Mat dest = Mat::zeros(Size(src.cols+dpad, src.rows),dst.type());
+	{
+		BinalyWeightedRangeFilter_32f_InvokerSSE4PairSymmetric body(dest, temp, radiusH, radiusV, maxk, space_ofs, threshold);
+		parallel_for_(Range(0, size.height), body, cv::getNumThreads());
+	}
+	Mat(dest(Rect(0,0,dst.cols,dst.rows))).copyTo(dst);
+}
 
 void binalyWeightedRangeFilter_32f( const Mat& src, Mat& dst, Size kernelSize, float threshold, int borderType )
 {
@@ -824,6 +1133,35 @@ void binalyWeightedRangeFilter(const Mat& src, Mat& dst, Size kernelSize, float 
 		else if(src.type()==CV_MAKE_TYPE(CV_32F,src.channels()))
 		{
 			binalyWeightedRangeFilter_32f(src,dst,kernelSize,threshold,borderType);
+		}
+	}
+	else if(method==FULL_KERNEL_PAIR)
+	{
+		if(src.type()==CV_MAKE_TYPE(CV_8U,src.channels()))
+		{
+			//binalyWeightedRangeFilter_8u(src,dst,kernelSize,(uchar)threshold,borderType);
+		}
+		if(src.type()==CV_MAKE_TYPE(CV_16S,src.channels()))
+		{
+			Mat srcf;
+			Mat destf(src.size(),CV_32F);
+			src.convertTo(srcf,CV_32F);
+
+			binalyWeightedRangeFilter_32fPairSymmetric(srcf,destf,kernelSize,threshold,borderType);
+			destf.convertTo(dst,CV_16S);
+		}
+		if(src.type()==CV_MAKE_TYPE(CV_16U,src.channels()))
+		{
+			Mat srcf;
+			Mat destf(src.size(),CV_32F);
+			src.convertTo(srcf,CV_32F);
+
+			binalyWeightedRangeFilter_32fPairSymmetric(srcf,destf,kernelSize,threshold,borderType);
+			destf.convertTo(dst,CV_16U);
+		}
+		else if(src.type()==CV_MAKE_TYPE(CV_32F,src.channels()))
+		{
+			binalyWeightedRangeFilter_32fPairSymmetric(src,dst,kernelSize,threshold,borderType);
 		}
 	}
 	else if(method==SEPARABLE_KERNEL)
