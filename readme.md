@@ -1,7 +1,7 @@
 Depth map compression App
 =============
 Project Page:
-http://nma.web.nitech.ac.jp/fukushima/research/depthmap_postfilter.html
+http://fukushima.web.nitech.ac.jp/research/dpf/
 
 This code is implimentation of the following paper.
 
